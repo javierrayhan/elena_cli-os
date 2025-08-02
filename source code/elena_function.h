@@ -9,7 +9,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 
-#include "e_sound.h"
+#include "elena_sound.h"
 #include "elena_user.h"
 #include "e_time.h"
 

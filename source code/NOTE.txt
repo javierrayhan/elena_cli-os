@@ -1,0 +1,223 @@
+void cmd_extendGpio() {
+  char input[64];
+
+  Serial.println(F("[I2C] Initializing PCF8574 devices..."));
+  initPCFDevices(); 
+
+  while (true) {
+    Serial.print(F("PCF8574> "));
+    readLine(input, sizeof(input));
+
+    if (strcmp(input, "exit") == 0) {
+      Serial.println(F("[!] Exit from GPIO Mode."));
+      break;
+    }
+
+    // Help
+    if (strcmp(input, "help") == 0) {
+      Serial.println(F(" ┌──────────────────────────┐"));
+      Serial.println(F(" │ 0x??: x set(1/0)       → Set pin x to HIGH or low    "));
+      Serial.println(F(" │ 0x??: x (read)         → Read state of pin x   "));
+      Serial.println(F(" │ 0x??: all mode(output) → Set all pins to OUT   "));
+      Serial.println(F(" │ 0x??: all mode(input)  → Set all pins to IN    "));
+      Serial.println(F(" │ 0x??: all set(1)       → Set all OUT pins HIGH "));
+      Serial.println(F(" │ status                 → Show all pin states   "));
+      Serial.println(F(" │ help                   → Show this help list   "));
+      Serial.println(F(" │ exit                   → Exit GPIO mode        "));
+      Serial.println(F(" └───────────────────────────┘"));
+      continue;
+    }
+
+    // Status
+    if (strcmp(input, "status") == 0) {
+      printAllStatus();
+      continue;
+    }
+
+    // Parsers
+    uint8_t addr;
+    int pin;
+    char action[16];
+    int value;
+
+    // Format 1: 0x22: 3 set(1)
+    if (sscanf(input, "0x%hhx: %d set(%d)", &addr, &pin, &value) == 3) {
+      writeOutput(addr, pin, value);
+    }
+    // Format 2: 0x22: 3 (read)
+    else if (sscanf(input, "0x%hhx: %d (%15[^)])", &addr, &pin, action) == 3) {
+      if (strcmp(action, "read") == 0) {
+        readPin(addr, pin);
+      } else {
+        Serial.println(F("[E] Unknown action inside (). Use (read)"));
+      }
+    }
+    // Format 3: 0x22: all mode(output/input)
+    else if (sscanf(input, "0x%hhx: all mode(%15[^)])", &addr, action) == 2) {
+      if (strcmp(action, "output") == 0) {
+        setAllPinMode(addr, true);
+      } else if (strcmp(action, "input") == 0) {
+        setAllPinMode(addr, false);
+      } else {
+        Serial.println(F("[E] Unknown mode. Use (output) or (input)"));
+      }
+    }
+    // Format 4: 0x22: all set(1/0)
+    else if (sscanf(input, "0x%hhx: all set(%d)", &addr, &value) == 2) {
+      writeAllOutput(addr, value);
+    }
+    else {
+      Serial.println(F("[E] Invalid format. Type 'help' to see valid commands."));
+    }
+  }
+}
+
+#ifndef EXTEND_H
+#define EXTEND_H
+
+#pragma once
+#include <PCF8574.h>
+#include <Wire.h>
+
+PCF8574 pcf[] = {
+  PCF8574(0x20),
+  PCF8574(0x21),
+  PCF8574(0x22),
+  PCF8574(0x23)
+};
+
+bool available[4] = { false, false, false, false };
+
+void initPCFDevices() {
+  for (int i = 0; i < 4; i++) {
+    Wire.beginTransmission(pcf[i].getAddress());
+    if (Wire.endTransmission() == 0) {
+      pcf[i].begin();
+      available[i] = true;
+      Serial.print(F("[I2C] PCF8574 at address 0x"));
+      Serial.println(pcf[i].getAddress(), HEX);
+    } else {
+      Serial.print(F("[I2C] Address 0x"));
+      Serial.print(pcf[i].getAddress(), HEX);
+      Serial.println(F(" not available."));
+    }
+  }
+}
+
+int addrToIndex(uint8_t addr) {
+  switch (addr) {
+    case 0x20: return 0;
+    case 0x21: return 1;
+    case 0x22: return 2;
+    case 0x23: return 3;
+    default: return -1;
+  }
+}
+
+void writeOutput(uint8_t addr, int pin, int state) {
+  int idx = addrToIndex(addr);
+  if (idx == -1 || !available[idx]) {
+    Serial.println(F("[E] Address not available."));
+    return;
+  }
+  pcf[idx].write(pin, state);
+  Serial.print(F("[PCF8574] Pin "));
+  Serial.print(pin);
+  Serial.print(F(" at 0x"));
+  Serial.print(addr, HEX);
+  Serial.print(F(" set to "));
+  Serial.println(state == HIGH ? "HIGH" : "LOW");
+}
+
+void readPin(uint8_t addr, int pin) {
+  int idx = addrToIndex(addr);
+  if (idx == -1 || !available[idx]) {
+    Serial.println(F("[E] Address not available."));
+    return;
+  }
+  int val = pcf[idx].read(pin);
+  Serial.print(F("[i] Read from 0x"));
+  Serial.print(addr, HEX);
+  Serial.print(F(", pin "));
+  Serial.print(pin);
+  Serial.print(F(" = "));
+  Serial.println(val);
+}
+
+void printAllStatus() {
+  for (int i = 0; i < 4; i++) {
+    if (!available[i]) continue;
+    Serial.print(F("[i] 0x"));
+    Serial.println(pcf[i].getAddress(), HEX);
+    for (int p = 0; p < 8; p++) {
+      int v = pcf[i].read(p);
+      Serial.print("  Pin ");
+      Serial.print(p);
+      Serial.print(": ");
+      Serial.println(v);
+    }
+  }
+}
+
+// Set semua pin jadi output/input
+void setAllPinMode(uint8_t addr, bool isOutput) {
+  int idx = -1;
+  for (int i = 0; i < DEVICE_COUNT; i++) {
+    if (DEVICE_ADDR[i] == addr && isAvailable[i]) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx == -1) {
+    Serial.print(F("[!] Address 0x"));
+    Serial.print(addr, HEX);
+    Serial.println(F(" not available."));
+    return;
+  }
+
+  for (int pin = 0; pin < 8; pin++) {
+    pinModeStates[idx][pin] = isOutput;
+    pcf[idx].write(pin, isOutput ? LOW : HIGH);  // Safe default
+  }
+
+  Serial.print(F("[S] Set all pins on 0x"));
+  Serial.print(addr, HEX);
+  Serial.print(F(" to "));
+  Serial.println(isOutput ? "OUTPUT" : "INPUT");
+}
+
+// Set semua pin HIGH/LOW
+void writeAllOutput(uint8_t addr, int state) {
+  int idx = -1;
+  for (int i = 0; i < DEVICE_COUNT; i++) {
+    if (DEVICE_ADDR[i] == addr && isAvailable[i]) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx == -1) {
+    Serial.print(F("[!] Address 0x"));
+    Serial.print(addr, HEX);
+    Serial.println(F(" not available."));
+    return;
+  }
+
+  for (int pin = 0; pin < 8; pin++) {
+    if (!pinModeStates[idx][pin]) {
+      Serial.print(F("[!] Pin "));
+      Serial.print(pin);
+      Serial.print(F(" on 0x"));
+      Serial.print(addr, HEX);
+      Serial.println(F(" is INPUT, skipped."));
+      continue;
+    }
+    pcf[idx].write(pin, state);
+  }
+
+  Serial.print(F("[S] Set all OUTPUT pins on 0x"));
+  Serial.print(addr, HEX);
+  Serial.print(F(" to "));
+  Serial.println(state == HIGH ? "HIGH" : "LOW");
+}
+
+#endif
