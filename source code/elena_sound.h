@@ -1,5 +1,5 @@
-#ifndef E_SOUND_H
-#define E_SOUND_H
+#ifndef ELENA_SOUND_H
+#define ELENA_SOUND_H
 
 #include "pitches.h"
 
