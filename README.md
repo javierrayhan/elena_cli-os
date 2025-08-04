@@ -8,7 +8,7 @@
 ---
 
 ## Project Note!
-> Please go to [this page](https://docs.javierrayhan.my.id/docs/category/elenacli) for full guide!
+> Please go to [this page](https://docs.javierrayhan.my.id/docs/category/elena-cli-os) for full guide!
 
 ---
 
