@@ -3,7 +3,7 @@
 **Microcontroller Supported**: ATmega32, Atmega16 
 **Author**: Javier Rayhan  
 **Project Start**: June 16, 2025
-**Status**: Stable, but open to improvements
+**Status**: Under development, open to improvements
 
 ---
 
