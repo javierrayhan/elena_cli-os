@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🔥ELENA CLI OS
 
 **Microcontroller Supported**: ATmega32, Atmega16 
@@ -31,6 +30,7 @@ I totally welcome any modifications, fixes, or upgrades you wanna make. Just ple
 
 ---
 ## Any problems?
+
 If anything’s unclear or you’re curious about the project, feel free to slide into my DMs on Instagram: @zv.cpp — always happy to chat!
 =======
 # 🔥ELENA CLI OS
@@ -66,4 +66,3 @@ I totally welcome any modifications, fixes, or upgrades you wanna make. Just ple
 ---
 ## Any problems?
 If anything’s unclear or you’re curious about the project, feel free to slide into my DMs on Instagram: @zv.cpp — always happy to chat!
->>>>>>> cf48087175be49c5b55811cb24d7491cb04a81c5
