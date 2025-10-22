@@ -8,9 +8,7 @@ class RealTimeManager {
 private:
   virtuabotixRTC* rtc;
 
-  // Cek tahun kabisat
   bool isLeapYear(int year);
-  // Maksimal hari dalam bulan
   int getMaxDay(uint8_t month, int year);
 
 public:

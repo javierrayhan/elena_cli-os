@@ -12,6 +12,7 @@
 #include "elena_sound.h"
 #include "elena_user.h"
 #include "elena_time.h"
+#include "elena_variable.h"
 
 virtuabotixRTC myRTC(PIN_PD2, PIN_PD3, PIN_PD4); // Sesuai wiring: CLK, DAT, RST
 RealTimeManager timeManager(&myRTC);
@@ -26,34 +27,38 @@ bool soundEN;
 //   return str.substring(start, end);
 // }
 
+typedef void (*CommandFunc)(const char*);
+
+struct CommandEntry {
+  const char *name;
+  CommandFunc func;
+};
+
 // ===== Serial Input Function ======
-String readSerialLine() {
-  String input = "";
+bool readSerialLine(char* buffer, size_t maxLen) {
+  size_t i = 0;
   while (true) {
     if (Serial.available()) {
       char ch = Serial.read();
       if (ch == '\n' || ch == '\r') {
-        if (input.length() > 0) break; // End input on Enter
+        if (i > 0) break;
       } else {
-        input += ch;
+        if (i < maxLen - 1) {
+          buffer[i++] = ch;
+        }
       }
     }
   }
-  return input;
+  buffer[i] = '\0';
+  return (i > 0);
 }
 
 // ===== Sub Functional ===== 
 void sound(const Sound& soundToPlay) {
-  bool soundEN = eeprom_bool_read(33);
-  if (soundEN) {
-    playSound(soundToPlay);
-  } else if (!soundEN){
-
-  } else {
+  if (eeprom_bool_read(33)) {
     playSound(soundToPlay);
   }
 }
-
 
 extern int __heap_start, *__brkval;
 int freeMemory() {
@@ -146,7 +151,7 @@ void printAllPinStatus() {
 
     Serial.println(F(""));
 
-    for (int pinNum = 0; pinNum < 8; pinNum++) {
+    for (uint8_t pinNum = 0; pinNum < 8; pinNum++) {
       if (portChar == 'D' && (pinNum == 0 || pinNum == 1)) continue;
 
       bool state = (*pin & (1 << pinNum));
@@ -172,6 +177,9 @@ String formatUptime(unsigned long ms) {
 }
 
 void scanI2CDevices() {
+  DDRC |= (1 << PC0) | (1 << PC1);
+  PORTC |= (1 << PC0) | (1 << PC1);
+
   byte error, address;
   uint8_t found = 0;
   uint8_t err = 0;
@@ -204,6 +212,7 @@ void scanI2CDevices() {
   Serial.println(F(" address(es) failed."));
   Serial.println(F("[i] Scan complete."));
   sound(notifySound);
+  PORTC &= ~((1 << PC0) | (1 << PC1));
 }
 
 void interactiveSetTime() {
@@ -300,7 +309,6 @@ void delayFunc(const char* input) {
   }
 }
 
-
 void showHelp() {
   Serial.println(F("[i] Available Commands:"));
   Serial.println(F(" ┌────────────────────┐"));
@@ -319,6 +327,7 @@ void showHelp() {
   Serial.println(F(" │ delay        → Delay"));
   Serial.println(F(" │ gpio s/w/r   → GPIO function")); 
   Serial.println(F(" │ i2c scan     → Scan all i2c devices"));
+  Serial.println(F(" │ var help     → Variable Help"));
   Serial.println(F(" └────────────────────┘"));
 }
 
@@ -339,13 +348,13 @@ void printHelp() {
   Serial.println(F("  print \"hello\" for 5  →  5x hello"));
 }
 
-void gpioWriteHelp(){
+// void gpioWriteHelp(){
 
-}
+// }
 
-void gpioReadeHelp(){
+// void gpioReadeHelp(){
   
-}
+// }
 
 // ===== Command Functions =====
 void cmd_time(){
@@ -653,99 +662,106 @@ void cmd_eeprom_wipe() {
 }
 
 // ===== Command Dispatcher =====
-void handleCommand(String command) {
-  command.trim();
-  command.toLowerCase();
+void cmd_elena(const char*) { Serial.println(F("ELENA> Hi, are you called me?")); }
+void cmd_help(const char*) { showHelp(); }
+void cmd_dhelp(const char*) { showDangerousHelp(); }
+void cmd_login(const char*) { elenaUserStartup(); }
+void cmd_logout(const char*) { logout(); }
+void cmd_stat_wrap(const char*) { cmd_stat(loggedIn); }
+void cmd_rns(const char*) { cmd_resetandset(); }
+void cmd_reboot_wrap(const char*) { cmd_reboot(); }
+void cmd_whoami_wrap(const char*) { cmd_whoami(); }
+void cmd_time_wrap(const char*) { cmd_time(); }
+void cmd_settime(const char*) { interactiveSetTime(); }
+void cmd_soundon(const char*) { eeprom_bool_write(33, true); }
+void cmd_soundoff(const char*) { eeprom_bool_write(33, false); }
+void cmd_ode(const char*) { sound(odeSound); }
+void cmd_calc_wrap(const char*) { cmd_calc(); }
+void cmd_gpio_s(const char*) { printAllPinStatus(); }
+void cmd_i2cscan(const char*) { scanI2CDevices(); }
+void cmd_wipe(const char*) { cmd_eeprom_wipe(); }
+// void cmd_intre(const char* input) { interpret(input); }
 
-  if (command == "elena" || command == "hello" || command == "hi"){ //Easter egg 
-    Serial.println(F("ELENA> Hi, are you called me?"));
-  } 
-  
-  else if (command == "help") {
-    showHelp();
-  } 
-  
-  else if (command == "d help") {
-    showDangerousHelp();
-  } 
-  
-  else if (command == "login") {
-    elenaUserStartup(); 
-  } 
-  
-  else if (command == "logout") {
-    logout();
-  } 
-  
-  else if (command == "stat") {
-    cmd_stat(loggedIn);
-  } 
-  
-  else if (command == "rns acc") {
-    cmd_resetandset();
-  } 
-  
-  else if (command == "reboot") {
-    cmd_reboot();
-  } 
-  
-  else if (command == "whoami") {
-    cmd_whoami();
-  } 
-  
-  else if (command == "time") {
-    cmd_time();
-  } 
-  
-  else if (command == "set time") {
-    interactiveSetTime();
-  } 
-  
-  else if (command == "sound on") {
-    eeprom_bool_write(33, true);
-  } 
-  
-  else if (command == "sound off") {
-    eeprom_bool_write(33, false);
-  } 
-  
-  else if (command == "calc") {
-    cmd_calc();
-  } 
-  
-  else if (command.startsWith("print help")){
-    printHelp();
-  } else if (command.startsWith("print")) {
-    handlePrintCommand(command.c_str());
-  } 
+const CommandEntry commands[] PROGMEM = {
+  { "elena", cmd_elena },
+  { "hello", cmd_elena },
+  { "hi", cmd_elena },
+  { "help", cmd_help },
+  { "d help", cmd_dhelp },
+  { "login", cmd_login },
+  { "logout", cmd_logout },
+  { "stat", cmd_stat_wrap },
+  { "rns acc", cmd_rns },
+  { "reboot", cmd_reboot_wrap },
+  { "whoami", cmd_whoami_wrap },
+  { "time", cmd_time_wrap },
+  { "set time", cmd_settime },
+  { "sound on", cmd_soundon },
+  { "sound off", cmd_soundoff },
+  { "play ode", cmd_ode },
+  { "calc", cmd_calc_wrap },
+  { "gpio s", cmd_gpio_s },
+  { "i2c scan", cmd_i2cscan },
+  { "eeprom wipe", cmd_wipe },
+  // { "var", cmd_intre},
+  // { "set", cmd_intre},
+  // { "print var", cmd_intre},
+};
 
-  else if (command.startsWith("delay")){
-    delayFunc(command.c_str());
+void handleCommand(const char *cmd) {
+  // Trim + lowercase bisa manual
+  char buf[64];
+  strncpy(buf, cmd, sizeof(buf));
+  strlwr(buf); // lowercase
+
+  // Cek command table
+  bool found = false;
+  for (uint8_t i = 0; i < sizeof(commands)/sizeof(commands[0]); i++) {
+    const char *name = (const char*)pgm_read_ptr(&commands[i].name);
+    if (strcmp(buf, name) == 0) {
+      CommandFunc f = (CommandFunc)pgm_read_ptr(&commands[i].func);
+      f(buf);
+      found = true;
+      break;
+    }
   }
-  
-  else if (command == "gpio s") {
-    printAllPinStatus();
-  } 
-  
-  else if (command.startsWith("gpio w")) {
-    cmd_gpioWrite(command.c_str());
-  } 
-  
-  else if (command.startsWith("gpio r")) {
-    cmd_gpioRead(command.c_str());
-  } 
-  
-  else if (command == "i2c scan") {
-    scanI2CDevices();
-  } 
-  
-  else if (command == "eeprom wipe") {
-    cmd_eeprom_wipe();
-  } 
-  
-  else {
+
+  // Special case: command yang butuh parsing argumen
+  if (!found) {
+    if (strncmp(buf, "var ", 4) == 0 || strcmp(buf, "var") == 0){
+      interpret(buf);
+      found = true;
+    }
+    else if (strncmp(buf, "set ", 4) == 0 || strcmp(buf, "var") == 0){
+      interpret(buf);
+      found = true;
+    }
+    else if (strncmp(buf, "print var ", 10) == 0 || strcmp(buf, "print var ") == 0) {
+      interpret(buf);
+      found = true;
+    } 
+    else if (strncmp(buf, "print", 5) == 0) {
+      if (strcmp(buf, "print help") == 0) printHelp();
+      else handlePrintCommand(buf);
+      found = true;
+    }
+    else if (strncmp(buf, "delay", 5) == 0) {
+      delayFunc(buf);
+      found = true;
+    }
+    else if (strncmp(buf, "gpio w", 6) == 0) {
+      cmd_gpioWrite(buf);
+      found = true;
+    }
+    else if (strncmp(buf, "gpio r", 6) == 0) {
+      cmd_gpioRead(buf);
+      found = true;
+    }
+  }
+
+  if (!found) {
     Serial.print(F("[X] Unknown command with '"));
-    Serial.print(command);
+    Serial.print(buf);
     Serial.println(F("'. Try 'help' to see all commands."));
     sound(errorSound);
   }

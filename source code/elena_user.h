@@ -5,7 +5,7 @@
 #include "elena_eeprom.h"
 
 extern bool loggedIn;
-extern String usernow;
+extern char usernow[MAX_USER_LEN + 1];
 
 void readLine(char* buffer, int maxLen);
 bool loginUser();

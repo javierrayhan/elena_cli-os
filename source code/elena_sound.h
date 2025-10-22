@@ -22,8 +22,12 @@ extern const int errorDurations[];
 extern const int notifyNotes[];
 extern const int notifyDurations[];
 
+extern const int odeNotes[];
+extern const int odeDurations[];
+
 extern Sound bootSound;
 extern Sound errorSound;
 extern Sound notifySound;
+extern Sound odeSound;
 
 #endif
